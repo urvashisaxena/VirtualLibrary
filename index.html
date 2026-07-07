@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Virtual Library</title>
+<style>
+  :root {
+    --wood-dark: #2b1a10;
+    --wood-mid: #4a2c17;
+    --wood-light: #6b4226;
+    --shelf-face: #3a2213;
+    --gold: #c9a227;
+    --gold-soft: #e0c36a;
+    --parchment: #f0e2c4;
+    --candle: rgba(255, 176, 84, 0.35);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #14100c;
+    color: var(--parchment);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ---------- ambient room ---------- */
+  .room {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 45% at 78% 22%, rgba(255,170,80,0.14), transparent 65%),
+      radial-gradient(ellipse 55% 40% at 15% 80%, rgba(255,140,60,0.10), transparent 65%),
+      linear-gradient(180deg, #191009 0%, #14100c 45%, #0e0a07 100%);
+  }
+
+  /* wood panelling stripes */
+  .room::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(107, 66, 38, 0.10) 0px,
+      rgba(107, 66, 38, 0.10) 6px,
+      transparent 6px,
+      transparent 140px
+    );
+    opacity: .5;
+  }
+
+  /* warm flicker like firelight */
+  .room::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 55% at 50% 105%, rgba(255,148,54,0.10), transparent 70%);
+    animation: flicker 5.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: .55; }
+    18% { opacity: .85; }
+    34% { opacity: .6; }
+    55% { opacity: .95; }
+    73% { opacity: .7; }
+  }
+
+  /* ---------- rain sound toggle ---------- */
+  .rain-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 20;
+    font-family: inherit;
+    font-variant: small-caps;
+    letter-spacing: .09em;
+    font-size: .82rem;
+    color: rgba(240,226,196,.7);
+    background: linear-gradient(180deg, #3d2817, #241509);
+    border: 1px solid rgba(201,162,39,.4);
+    border-radius: 3px;
+    padding: 7px 14px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    transition: all .18s ease;
+  }
+
+  .rain-toggle:hover { color: var(--gold-soft); border-color: var(--gold); }
+
+  .rain-toggle.on {
+    color: var(--gold-soft);
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(201,162,39,.25), inset 0 1px 0 rgba(255,255,255,.1);
+  }
+
+  /* ---------- rainy window ---------- */
+  .window {
+    position: fixed;
+    top: 6vh;
+    right: 4vw;
+    width: min(260px, 24vw);
+    height: min(380px, 52vh);
+    z-index: 1;
+    border-radius: 130px 130px 8px 8px;
+    border: 10px solid #241509;
+    box-shadow:
+      0 0 0 3px #120b06,
+      0 0 60px rgba(120, 150, 190, 0.18),
+      inset 0 0 40px rgba(10, 20, 40, 0.8);
+    background: linear-gradient(180deg, #1c2a40 0%, #16202f 40%, #101722 100%);
+    overflow: hidden;
+  }
+
+  .window .muntin-v, .window .muntin-h {
+    position: absolute;
+    background: #241509;
+    box-shadow: 0 0 4px rgba(0,0,0,.7);
+    z-index: 3;
+  }
+  .window .muntin-v { top: 0; bottom: 0; left: calc(50% - 4px); width: 8px; }
+  .window .muntin-h { left: 0; right: 0; top: calc(45% - 4px); height: 8px; }
+
+  .window .mist {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 30% at 50% 90%, rgba(160,190,220,0.10), transparent 70%),
+      radial-gradient(ellipse 60% 25% at 30% 20%, rgba(160,190,220,0.07), transparent 70%);
+    z-index: 1;
+  }
+
+  .raindrop {
+    position: absolute;
+    top: -12%;
+    width: 1.5px;
+    background: linear-gradient(180deg, transparent, rgba(174, 205, 235, 0.55));
+    border-radius: 2px;
+    animation: fall linear infinite;
+    z-index: 2;
+  }
+
+  @keyframes fall {
+    to { transform: translateY(60vh); }
+  }
+
+  .streak {
+    position: absolute;
+    width: 2.5px;
+    height: 2.5px;
+    border-radius: 50%;
+    background: rgba(190, 215, 240, 0.5);
+    z-index: 2;
+    animation: trickle linear infinite;
+  }
+
+  @keyframes trickle {
+    0% { transform: translateY(0) scaleY(1); opacity: 0; }
+    10% { opacity: .8; }
+    100% { transform: translateY(40vh) scaleY(6); opacity: 0; }
+  }
+
+  /* ---------- header ---------- */
+  header {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 42px 20px 10px;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.9rem);
+    font-weight: normal;
+    font-variant: small-caps;
+    letter-spacing: .12em;
+    color: var(--gold-soft);
+    text-shadow: 0 2px 14px rgba(224, 195, 106, 0.25), 0 1px 0 #000;
+  }
+
+  h1 .amp { color: var(--gold); font-style: italic; }
+
+  .subtitle {
+    margin-top: 8px;
+    font-style: italic;
+    color: rgba(240, 226, 196, 0.55);
+    font-size: .95rem;
+    letter-spacing: .05em;
+  }
+
+  .flourish {
+    margin: 14px auto 0;
+    width: 220px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    position: relative;
+  }
+  .flourish::after {
+    content: '❦';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    color: var(--gold);
+    font-size: .9rem;
+    padding: 0 10px;
+    text-shadow: 0 0 8px rgba(201,162,39,.5);
+  }
+
+  /* ---------- bookcase ---------- */
+  main {
+    position: relative;
+    z-index: 2;
+    max-width: 980px;
+    margin: 28px auto 70px;
+    padding: 0 22px;
+  }
+
+  .bookcase {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.03), transparent 30%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0 2px, transparent 2px 90px),
+      linear-gradient(180deg, var(--wood-mid), var(--wood-dark));
+    border: 14px solid;
+    border-image: linear-gradient(180deg, #5a3620, #2b1a10) 1;
+    border-radius: 6px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.75),
+      inset 0 0 60px rgba(0,0,0,.55);
+    padding: 26px 26px 8px;
+  }
+
+  .bookcase-crown {
+    max-width: calc(980px - 44px + 40px);
+    margin: 0 auto;
+    height: 18px;
+    background: linear-gradient(180deg, #6b4226, #3a2213);
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+
+  .shelf-section { margin-bottom: 30px; }
+
+  .shelf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .shelf-plaque {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    background: linear-gradient(180deg, #3d2817, #241509);
+    border: 1px solid rgba(201,162,39,.55);
+    border-radius: 3px;
+    padding: 6px 18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 8px rgba(0,0,0,.5);
+  }
+
+  .shelf-plaque .name {
+    font-variant: small-caps;
+    letter-spacing: .14em;
+    font-size: 1.05rem;
+    color: var(--gold-soft);
+    text-shadow: 0 1px 0 #000;
+  }
+
+  .shelf-plaque .count {
+    font-size: .8rem;
+    font-style: italic;
+    color: rgba(240,226,196,.5);
+  }
+
+  .add-btn {
+    font-family: inherit;
+    font-variant: small-caps;
+    letter-spacing: .1em;
+    font-size: .9rem;
+    color: var(--parchment);
+    background: linear-gradient(180deg, #5a3620, #3a2213);
+    border: 1px solid rgba(201,162,39,.5);
+    border-radius: 3px;
+    padding: 7px 16px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.1);
+    transition: all .18s ease;
+  }
+
+  .add-btn:hover {
+    color: var(--gold-soft);
+    border-color: var(--gold);
+    box-shadow: 0 3px 14px rgba(201,162,39,.3), inset 0 1px 0 rgba(255,255,255,.15);
+    transform: translateY(-1px);
+  }
+
+  .shelf {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    min-height: 168px;
+    padding: 10px 14px 0;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.12) 35%, rgba(0,0,0,0)),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 70px),
+      linear-gradient(180deg, #33200f, #281809);
+    border-radius: 3px 3px 0 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--wood-light) transparent;
+    transition: box-shadow .18s ease;
+  }
+
+  .shelf.drop-target {
+    box-shadow: inset 0 0 24px rgba(201,162,39,.28);
+  }
+
+  .shelf-board {
+    height: 16px;
+    background: linear-gradient(180deg, #7a4d2b 0%, #4a2c17 45%, #2b1a10 100%);
+    border-radius: 2px;
+    box-shadow: 0 6px 14px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+
+  .empty-note {
+    align-self: center;
+    margin: 0 auto;
+    font-style: italic;
+    color: rgba(240,226,196,.35);
+    font-size: .92rem;
+    letter-spacing: .04em;
+    padding-bottom: 20px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* ---------- books ---------- */
+  .book {
+    position: relative;
+    flex: 0 0 auto;
+    width: 38px;
+    border-radius: 2px 2px 0 0;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      inset 3px 0 5px rgba(255,255,255,.14),
+      inset -4px 0 6px rgba(0,0,0,.45),
+      2px 0 3px rgba(0,0,0,.4);
+    transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    animation: slideIn .35s ease;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateY(-14px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .book:hover {
+    transform: translateY(-9px);
+    box-shadow:
+      inset 3px 0 5px rgba(255,255,255,.18),
+      inset -4px 0 6px rgba(0,0,0,.45),
+      2px 0 3px rgba(0,0,0,.4),
+      0 0 18px rgba(224,195,106,.28);
+    z-index: 5;
+  }
+
+  .book.dragging { opacity: .35; cursor: grabbing; }
+
+  .book.drop-before::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    height: auto;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(201,162,39,.8);
+    border-radius: 2px;
+  }
+
+  .book.leaning { transform: rotate(6deg) translateY(-2px); transform-origin: bottom right; }
+  .book.leaning:hover { transform: rotate(6deg) translateY(-10px); }
+
+  .book .spine-text {
+    writing-mode: vertical-rl;
+    font-size: .72rem;
+    letter-spacing: .06em;
+    max-height: calc(100% - 22px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgba(255, 244, 214, 0.92);
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+    pointer-events: none;
+  }
+
+  .book .band-top, .book .band-bottom {
+    position: absolute;
+    left: 4px; right: 4px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(224,195,106,.75), transparent);
+    pointer-events: none;
+  }
+  .book .band-top { top: 7px; }
+  .book .band-bottom { bottom: 7px; }
+
+  /* a ribbon marks books that hold annotations */
+  .book .ribbon {
+    position: absolute;
+    top: 0;
+    right: 6px;
+    width: 5px;
+    height: 15px;
+    background: linear-gradient(180deg, #a3352a, #6e1f17);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- modal ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 5, 3, 0.72);
+    backdrop-filter: blur(3px);
+  }
+  .overlay.open { display: flex; }
+
+  .card {
+    width: min(430px, 92vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--wood-light) transparent;
+    background:
+      radial-gradient(ellipse at top left, rgba(255,200,120,.06), transparent 60%),
+      linear-gradient(180deg, #33200f, #241509);
+    border: 1px solid rgba(201,162,39,.55);
+    border-radius: 6px;
+    padding: 30px 30px 26px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.08);
+    animation: cardIn .22s ease;
+  }
+
+  .card.wide { width: min(560px, 94vw); }
+
+  @keyframes cardIn {
+    from { transform: translateY(14px) scale(.97); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  .card h2 {
+    font-weight: normal;
+    font-variant: small-caps;
+    letter-spacing: .1em;
+    color: var(--gold-soft);
+    font-size: 1.25rem;
+    margin-bottom: 4px;
+  }
+
+  .card .card-sub {
+    font-style: italic;
+    font-size: .88rem;
+    color: rgba(240,226,196,.55);
+    margin-bottom: 18px;
+  }
+
+  .card input[type="text"], .card textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 1.05rem;
+    color: var(--parchment);
+    background: rgba(10, 6, 3, 0.6);
+    border: 1px solid rgba(201,162,39,.4);
+    border-radius: 3px;
+    padding: 11px 14px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .card input[type="text"]:focus, .card textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(201,162,39,.25);
+  }
+
+  .card textarea {
+    font-size: .95rem;
+    font-style: italic;
+    resize: vertical;
+    min-height: 64px;
+  }
+
+  .card .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+  .card button {
+    font-family: inherit;
+    font-variant: small-caps;
+    letter-spacing: .08em;
+    font-size: .92rem;
+    padding: 9px 18px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .15s ease;
+    border: 1px solid rgba(201,162,39,.45);
+    background: transparent;
+    color: rgba(240,226,196,.75);
+  }
+
+  .card button:hover { color: var(--gold-soft); border-color: var(--gold); }
+
+  .card button.primary {
+    background: linear-gradient(180deg, #8a6a1e, #6a4f12);
+    border-color: var(--gold);
+    color: #fff6dd;
+    box-shadow: 0 3px 10px rgba(0,0,0,.5);
+  }
+  .card button.primary:hover { filter: brightness(1.15); }
+
+  .card button.danger { border-color: rgba(180, 70, 50, .6); color: #d99a8a; }
+  .card button.danger:hover { color: #f2b3a2; border-color: #b4462f; }
+
+  .book-title-display {
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--parchment);
+    margin-bottom: 18px;
+    padding: 10px 14px;
+    background: rgba(10, 6, 3, 0.45);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .book-title-display .by-line {
+    display: block;
+    margin-top: 3px;
+    font-size: .88rem;
+    font-style: normal;
+    font-variant: small-caps;
+    letter-spacing: .08em;
+    color: rgba(240,226,196,.55);
+  }
+
+  /* ---------- annotations ---------- */
+  .annos h3 {
+    font-weight: normal;
+    font-variant: small-caps;
+    letter-spacing: .1em;
+    font-size: .98rem;
+    color: var(--gold-soft);
+    margin-bottom: 10px;
+  }
+
+  .annos h3::before { content: '✒ '; color: var(--gold); }
+
+  .quote-list {
+    list-style: none;
+    max-height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--wood-light) transparent;
+    margin-bottom: 14px;
+  }
+
+  .quote-list li {
+    position: relative;
+    background: linear-gradient(180deg, rgba(240,226,196,.09), rgba(240,226,196,.05));
+    border-left: 3px solid rgba(201,162,39,.65);
+    border-radius: 0 3px 3px 0;
+    padding: 10px 34px 10px 14px;
+    margin-bottom: 8px;
+    font-style: italic;
+    font-size: .95rem;
+    line-height: 1.5;
+    color: rgba(240,226,196,.9);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .quote-list li::before { content: '“'; color: var(--gold); margin-right: 2px; }
+  .quote-list li::after { content: '”'; color: var(--gold); margin-left: 2px; }
+
+  .quote-list .quote-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    border: none !important;
+    background: none !important;
+    color: rgba(240,226,196,.4) !important;
+    font-size: .95rem !important;
+    padding: 2px 6px !important;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .quote-list .quote-del:hover { color: #f2b3a2 !important; }
+
+  .no-quotes {
+    font-style: italic;
+    font-size: .88rem;
+    color: rgba(240,226,196,.4);
+    margin-bottom: 14px;
+  }
+
+  .annos .row { margin-bottom: 20px; }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(201,162,39,.4), transparent);
+    margin: 4px 0 18px;
+  }
+
+  footer {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 0 20px 34px;
+    font-style: italic;
+    font-size: .84rem;
+    color: rgba(240,226,196,.35);
+    letter-spacing: .05em;
+  }
+
+  .hint {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    font-style: italic;
+    font-size: .8rem;
+    color: rgba(240,226,196,.3);
+    margin-top: -52px;
+    margin-bottom: 52px;
+    letter-spacing: .04em;
+  }
+
+  @media (max-width: 640px) {
+    .window { opacity: .55; width: 30vw; right: 2vw; }
+    .shelf-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="room"></div>
+
+<button class="rain-toggle" id="rain-toggle" aria-pressed="false" title="Toggle the sound of rain">☂ Rain: Hushed</button>
+
+<div class="window" aria-hidden="true">
+  <div class="mist"></div>
+  <div class="muntin-v"></div>
+  <div class="muntin-h"></div>
+  <div id="rain"></div>
+</div>
+
+<header>
+  <h1>The Reading Room</h1>
+  <div class="subtitle">a private library, kept by candlelight &amp; rain</div>
+  <div class="flourish"></div>
+</header>
+
+<main>
+  <div class="bookcase-crown"></div>
+  <div class="bookcase">
+
+    <section class="shelf-section">
+      <div class="shelf-header">
+        <div class="shelf-plaque">
+          <span class="name">Books I Have Read</span>
+          <span class="count" id="count-read"></span>
+        </div>
+        <button class="add-btn" data-shelf="read">✦ Add a Book</button>
+      </div>
+      <div class="shelf" id="shelf-read" data-shelf="read"></div>
+      <div class="shelf-board"></div>
+    </section>
+
+    <section class="shelf-section" style="margin-bottom: 16px;">
+      <div class="shelf-header">
+        <div class="shelf-plaque">
+          <span class="name">To Be Read</span>
+          <span class="count" id="count-tbr"></span>
+        </div>
+        <button class="add-btn" data-shelf="tbr">✦ Add a Book</button>
+      </div>
+      <div class="shelf" id="shelf-tbr" data-shelf="tbr"></div>
+      <div class="shelf-board"></div>
+    </section>
+
+  </div>
+</main>
+
+<div class="hint">drag a book to rearrange your shelves · a red ribbon marks a book with annotations</div>
+
+<footer>“I have always imagined that Paradise will be a kind of library.” — Jorge Luis Borges</footer>
+
+<!-- add book modal -->
+<div class="overlay" id="add-overlay">
+  <div class="card">
+    <h2 id="add-title">Add a Book</h2>
+    <div class="card-sub" id="add-sub">Inscribe its title below.</div>
+    <input type="text" id="add-input" placeholder="Title of the book…" maxlength="80" autocomplete="off">
+    <input type="text" id="add-author" placeholder="Author (optional)…" maxlength="60" autocomplete="off">
+    <div class="row">
+      <button id="add-cancel">Cancel</button>
+      <button class="primary" id="add-confirm">Place on Shelf</button>
+    </div>
+  </div>
+</div>
+
+<!-- book details modal -->
+<div class="overlay" id="book-overlay">
+  <div class="card wide">
+    <h2>From the Shelf</h2>
+    <div class="book-title-display">
+      <span id="book-title-display"></span>
+      <span class="by-line" id="book-author-display"></span>
+    </div>
+
+    <div class="annos">
+      <h3>Favourite Lines &amp; Annotations</h3>
+      <ul class="quote-list" id="quote-list"></ul>
+      <div class="no-quotes" id="no-quotes">Nothing inscribed yet — copy in a line that moved you.</div>
+      <textarea id="quote-input" placeholder="“Whatever our souls are made of…”" maxlength="1000" rows="3"></textarea>
+      <div class="row">
+        <button class="primary" id="quote-add">✒ Inscribe</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <button class="danger" id="book-remove">Remove</button>
+      <button id="book-cancel">Close</button>
+      <button class="primary" id="book-move"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'virtual-library-v1';
+  var SHELF_NAMES = { read: 'Books I Have Read', tbr: 'To Be Read' };
+
+  var SPINE_COLORS = [
+    ['#8a4444', '#5c2b2b'], // oxblood
+    ['#47705a', '#2e4a3a'], // forest green
+    ['#4a5f8a', '#31405e'], // navy
+    ['#9c7440', '#6e5228'], // tan leather
+    ['#6f4475', '#4a2c4e'], // plum
+    ['#9e5530', '#703a1f'], // sienna
+    ['#5f5a48', '#3e3a2e'], // olive drab
+    ['#ab4433', '#802f24'], // brick red
+    ['#3f636e', '#26424a'], // teal slate
+    ['#836349', '#59422e'], // umber
+  ];
+
+  // earlier versions stored plain title strings; normalize to book objects
+  function normalizeBook(entry) {
+    if (typeof entry === 'string') return { title: entry, author: '', quotes: [] };
+    return {
+      title: String(entry.title || ''),
+      author: String(entry.author || ''),
+      quotes: Array.isArray(entry.quotes) ? entry.quotes.map(String) : []
+    };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && Array.isArray(data.read) && Array.isArray(data.tbr)) {
+          return { read: data.read.map(normalizeBook), tbr: data.tbr.map(normalizeBook) };
+        }
+      }
+    } catch (e) { /* corrupted store — start fresh */ }
+    return { read: [], tbr: [] };
+  }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(library)); } catch (e) { /* storage full/blocked */ }
+  }
+
+  var library = load();
+  save(); // persist any migration immediately
+
+  // deterministic pseudo-random from title so a book keeps its look
+  function hash(str) {
+    var h = 5381;
+    for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+    return h;
+  }
+
+  function renderShelf(key) {
+    var shelfEl = document.getElementById('shelf-' + key);
+    var countEl = document.getElementById(key === 'read' ? 'count-read' : 'count-tbr');
+    var books = library[key];
+    shelfEl.innerHTML = '';
+
+    countEl.textContent = books.length === 0 ? '' :
+      books.length === 1 ? '· one volume' : '· ' + books.length + ' volumes';
+
+    if (books.length === 0) {
+      var note = document.createElement('div');
+      note.className = 'empty-note';
+      note.textContent = key === 'read'
+        ? 'This shelf awaits its first finished tale…'
+        : 'No adventures queued — add one for a rainy day…';
+      shelfEl.appendChild(note);
+      return;
+    }
+
+    books.forEach(function (entry, idx) {
+      var h = hash(entry.title);
+      var palette = SPINE_COLORS[h % SPINE_COLORS.length];
+      var height = 118 + (h % 5) * 10;          // 118–158px
+      var width = 30 + ((h >> 3) % 4) * 5;      // 30–45px
+
+      var book = document.createElement('div');
+      book.className = 'book';
+      book.style.height = height + 'px';
+      book.style.width = width + 'px';
+      book.style.background = 'linear-gradient(90deg, ' + palette[0] + ', ' + palette[1] + ')';
+      book.title = entry.title + (entry.author ? ' — ' + entry.author : '');
+      book.setAttribute('role', 'button');
+      book.setAttribute('tabindex', '0');
+      book.setAttribute('draggable', 'true');
+      book.setAttribute('data-index', idx);
+      book.setAttribute('aria-label', book.title + ' — ' + SHELF_NAMES[key]);
+
+      var bandTop = document.createElement('div');
+      bandTop.className = 'band-top';
+      var bandBottom = document.createElement('div');
+      bandBottom.className = 'band-bottom';
+      book.appendChild(bandTop);
+      book.appendChild(bandBottom);
+
+      // occasionally a book leans, like a real shelf
+      if ((h >> 7) % 9 === 0 && idx === books.length - 1) book.classList.add('leaning');
+
+      if (entry.quotes.length > 0) {
+        var ribbon = document.createElement('div');
+        ribbon.className = 'ribbon';
+        book.appendChild(ribbon);
+      }
+
+      var text = document.createElement('span');
+      text.className = 'spine-text';
+      text.textContent = entry.title;
+      book.appendChild(text);
+
+      book.addEventListener('click', function () { openBookModal(key, idx); });
+      book.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBookModal(key, idx); }
+      });
+
+      // drag to reorder / move between shelves
+      book.addEventListener('dragstart', function (e) {
+        dragSrc = { shelf: key, index: idx };
+        book.classList.add('dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', entry.title); } catch (err) {}
+        }
+      });
+      book.addEventListener('dragend', function () {
+        dragSrc = null;
+        book.classList.remove('dragging');
+        clearDropMarkers();
+      });
+
+      shelfEl.appendChild(book);
+    });
+  }
+
+  function renderAll() {
+    renderShelf('read');
+    renderShelf('tbr');
+  }
+
+  /* ---------- drag & drop ---------- */
+  var dragSrc = null; // { shelf, index }
+
+  function getDropIndex(shelfEl, x) {
+    var books = shelfEl.querySelectorAll('.book:not(.dragging)');
+    for (var i = 0; i < books.length; i++) {
+      var r = books[i].getBoundingClientRect();
+      if (x < r.left + r.width / 2) return i;
+    }
+    return books.length;
+  }
+
+  function clearDropMarkers() {
+    document.querySelectorAll('.book.drop-before').forEach(function (b) { b.classList.remove('drop-before'); });
+    document.querySelectorAll('.shelf.drop-target').forEach(function (s) { s.classList.remove('drop-target'); });
+  }
+
+  ['read', 'tbr'].forEach(function (key) {
+    var shelfEl = document.getElementById('shelf-' + key);
+
+    shelfEl.addEventListener('dragover', function (e) {
+      if (!dragSrc) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      clearDropMarkers();
+      shelfEl.classList.add('drop-target');
+      var idx = getDropIndex(shelfEl, e.clientX);
+      var books = shelfEl.querySelectorAll('.book:not(.dragging)');
+      if (idx < books.length) books[idx].classList.add('drop-before');
+    });
+
+    shelfEl.addEventListener('dragleave', function (e) {
+      if (e.target === shelfEl) clearDropMarkers();
+    });
+
+    shelfEl.addEventListener('drop', function (e) {
+      if (!dragSrc) return;
+      e.preventDefault();
+      // getDropIndex skips the dragged book, so the index is already
+      // relative to the array with the source removed
+      var dropIndex = getDropIndex(shelfEl, e.clientX);
+      var moved = library[dragSrc.shelf].splice(dragSrc.index, 1)[0];
+      library[key].splice(dropIndex, 0, moved);
+      dragSrc = null;
+      clearDropMarkers();
+      save();
+      renderAll();
+    });
+  });
+
+  /* ---------- add modal ---------- */
+  var addOverlay = document.getElementById('add-overlay');
+  var addInput = document.getElementById('add-input');
+  var addAuthor = document.getElementById('add-author');
+  var addTitle = document.getElementById('add-title');
+  var addSub = document.getElementById('add-sub');
+  var currentShelf = null;
+
+  document.querySelectorAll('.add-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      currentShelf = btn.getAttribute('data-shelf');
+      addTitle.textContent = 'Add to “' + SHELF_NAMES[currentShelf] + '”';
+      addSub.textContent = currentShelf === 'read'
+        ? 'A tale already told — inscribe its title.'
+        : 'A promise for a rainy afternoon — inscribe its title.';
+      addInput.value = '';
+      addAuthor.value = '';
+      addOverlay.classList.add('open');
+      addInput.focus();
+    });
+  });
+
+  function confirmAdd() {
+    var title = addInput.value.trim();
+    if (!title || !currentShelf) return;
+    library[currentShelf].push({ title: title, author: addAuthor.value.trim(), quotes: [] });
+    save();
+    renderAll();
+    closeAdd();
+  }
+
+  function closeAdd() {
+    addOverlay.classList.remove('open');
+    currentShelf = null;
+  }
+
+  document.getElementById('add-confirm').addEventListener('click', confirmAdd);
+  document.getElementById('add-cancel').addEventListener('click', closeAdd);
+  [addInput, addAuthor].forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') confirmAdd();
+      if (e.key === 'Escape') closeAdd();
+    });
+  });
+  addOverlay.addEventListener('click', function (e) { if (e.target === addOverlay) closeAdd(); });
+
+  /* ---------- book details modal ---------- */
+  var bookOverlay = document.getElementById('book-overlay');
+  var bookTitleDisplay = document.getElementById('book-title-display');
+  var bookAuthorDisplay = document.getElementById('book-author-display');
+  var bookMoveBtn = document.getElementById('book-move');
+  var quoteList = document.getElementById('quote-list');
+  var noQuotes = document.getElementById('no-quotes');
+  var quoteInput = document.getElementById('quote-input');
+  var selected = null; // { shelf, index }
+
+  function renderQuotes() {
+    quoteList.innerHTML = '';
+    if (!selected) return;
+    var quotes = library[selected.shelf][selected.index].quotes;
+    noQuotes.style.display = quotes.length === 0 ? 'block' : 'none';
+    quoteList.style.display = quotes.length === 0 ? 'none' : 'block';
+    quotes.forEach(function (q, qi) {
+      var li = document.createElement('li');
+      li.textContent = q;
+      var del = document.createElement('button');
+      del.className = 'quote-del';
+      del.textContent = '✕';
+      del.title = 'Strike this line from the record';
+      del.setAttribute('aria-label', 'Delete annotation');
+      del.addEventListener('click', function () {
+        library[selected.shelf][selected.index].quotes.splice(qi, 1);
+        save();
+        renderQuotes();
+        renderAll(); // ribbon may appear/disappear
+      });
+      li.appendChild(del);
+      quoteList.appendChild(li);
+    });
+    quoteList.scrollTop = quoteList.scrollHeight;
+  }
+
+  function openBookModal(shelf, index) {
+    selected = { shelf: shelf, index: index };
+    var entry = library[shelf][index];
+    bookTitleDisplay.textContent = entry.title;
+    bookAuthorDisplay.textContent = entry.author ? 'by ' + entry.author : '';
+    bookAuthorDisplay.style.display = entry.author ? 'block' : 'none';
+    bookMoveBtn.textContent = shelf === 'read' ? 'Move to “To Be Read”' : 'Mark as Read';
+    quoteInput.value = '';
+    renderQuotes();
+    bookOverlay.classList.add('open');
+  }
+
+  function closeBook() {
+    bookOverlay.classList.remove('open');
+    selected = null;
+  }
+
+  function addQuote() {
+    if (!selected) return;
+    var q = quoteInput.value.trim();
+    if (!q) return;
+    library[selected.shelf][selected.index].quotes.push(q);
+    quoteInput.value = '';
+    save();
+    renderQuotes();
+    renderAll(); // show the ribbon
+    quoteInput.focus();
+  }
+
+  document.getElementById('quote-add').addEventListener('click', addQuote);
+  quoteInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addQuote(); }
+  });
+
+  bookMoveBtn.addEventListener('click', function () {
+    if (!selected) return;
+    var other = selected.shelf === 'read' ? 'tbr' : 'read';
+    var moved = library[selected.shelf].splice(selected.index, 1)[0];
+    library[other].push(moved);
+    save();
+    renderAll();
+    closeBook();
+  });
+
+  document.getElementById('book-remove').addEventListener('click', function () {
+    if (!selected) return;
+    library[selected.shelf].splice(selected.index, 1);
+    save();
+    renderAll();
+    closeBook();
+  });
+
+  document.getElementById('book-cancel').addEventListener('click', closeBook);
+  bookOverlay.addEventListener('click', function (e) { if (e.target === bookOverlay) closeBook(); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeAdd(); closeBook(); }
+  });
+
+  /* ---------- rain sound (generated, no audio files) ---------- */
+  var rainAudio = { ctx: null, master: null, on: false };
+  var rainToggle = document.getElementById('rain-toggle');
+
+  function buildRainAudio() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return false;
+    var ctx = new Ctx();
+    var master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+
+    function noiseSource() {
+      var len = ctx.sampleRate * 2;
+      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      return src;
+    }
+
+    // steady wash of rain: low-passed noise
+    var wash = noiseSource();
+    var lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 850;
+    lp.Q.value = 0.6;
+    var washGain = ctx.createGain();
+    washGain.gain.value = 0.55;
+    wash.connect(lp); lp.connect(washGain); washGain.connect(master);
+    wash.start();
+
+    // brighter patter on the glass: band-passed noise
+    var patter = noiseSource();
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 4200;
+    bp.Q.value = 1.1;
+    var patterGain = ctx.createGain();
+    patterGain.gain.value = 0.14;
+    patter.connect(bp); bp.connect(patterGain); patterGain.connect(master);
+    patter.start();
+
+    // slow gusts: gentle LFO breathing on the wash
+    var lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.07;
+    var lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 0.12;
+    lfo.connect(lfoDepth); lfoDepth.connect(washGain.gain);
+    lfo.start();
+
+    rainAudio.ctx = ctx;
+    rainAudio.master = master;
+    return true;
+  }
+
+  rainToggle.addEventListener('click', function () {
+    if (!rainAudio.ctx && !buildRainAudio()) {
+      rainToggle.textContent = '☂ Rain: Unavailable';
+      return;
+    }
+    var ctx = rainAudio.ctx;
+    if (ctx.state === 'suspended') ctx.resume();
+    rainAudio.on = !rainAudio.on;
+    rainAudio.master.gain.cancelScheduledValues(ctx.currentTime);
+    rainAudio.master.gain.setTargetAtTime(rainAudio.on ? 0.22 : 0, ctx.currentTime, rainAudio.on ? 0.8 : 0.35);
+    rainToggle.textContent = rainAudio.on ? '☔ Rain: Pattering' : '☂ Rain: Hushed';
+    rainToggle.classList.toggle('on', rainAudio.on);
+    rainToggle.setAttribute('aria-pressed', String(rainAudio.on));
+  });
+
+  /* ---------- rain visuals ---------- */
+  var rain = document.getElementById('rain');
+  for (var i = 0; i < 26; i++) {
+    var drop = document.createElement('div');
+    drop.className = 'raindrop';
+    drop.style.left = (Math.random() * 100) + '%';
+    drop.style.height = (26 + Math.random() * 40) + 'px';
+    drop.style.animationDuration = (0.9 + Math.random() * 1.3) + 's';
+    drop.style.animationDelay = (Math.random() * 2) + 's';
+    drop.style.opacity = 0.35 + Math.random() * 0.5;
+    rain.appendChild(drop);
+  }
+  for (var j = 0; j < 8; j++) {
+    var streak = document.createElement('div');
+    streak.className = 'streak';
+    streak.style.left = (Math.random() * 100) + '%';
+    streak.style.top = (Math.random() * 60) + '%';
+    streak.style.animationDuration = (4 + Math.random() * 5) + 's';
+    streak.style.animationDelay = (Math.random() * 6) + 's';
+    rain.appendChild(streak);
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
